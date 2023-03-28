@@ -5,7 +5,9 @@ import numpy as np
 from PIL import Image
 from torch.utils import data
 from pathlib import Path
-from nuscenes.utils import splits
+# from nuscenes.utils import splits
+from tools.nuscenes.utils import splits
+from tools.nuscenes.nuscenes_ import NuScenes
 
 REGISTERED_PC_DATASET_CLASSES = {}
 
@@ -158,7 +160,6 @@ class nuScenes(data.Dataset):
         self.img_view = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT',
                          'CAM_FRONT_LEFT']
 
-        from nuscenes import NuScenes
         self.nusc = NuScenes(version=version, dataroot=data_path, verbose=True)
 
         self.get_available_scenes()
