@@ -56,6 +56,12 @@ def lidar_points_to_ego(points, lidar_pose):
     transform_matrix = np.linalg.inv(lidar_pose_mat)
     return (transform_matrix[:3, :3] @ points.T +  transform_matrix[:3, [3]]).T
 
+def ego_to_lidar_point(points, lidar_pose):
+    lidar_pose_mat = _heading_position_to_mat(
+        lidar_pose['heading'], lidar_pose['position'])
+    transform_matrix = np.linalg.inv(lidar_pose_mat)
+    return (np.linalg.inv(transform_matrix[:3, :3]) @ (points.T - transform_matrix[:3, [3]])).T
+
 
 def center_box_to_corners(box):
     pos_x, pos_y, pos_z, dim_x, dim_y, dim_z, yaw = box
@@ -76,6 +82,20 @@ def center_box_to_corners(box):
     ])
     corners = (transform_matrix[:3, :3] @ corners.T + transform_matrix[:3, [3]]).T
     return corners
+
+def world2spherical(world_lidar_data):
+    r = np.sqrt(np.sum(np.square(world_lidar_data), axis=1))
+    thera = np.rad2deg(np.arccos(world_lidar_data[:,2]/r))
+    phi = np.rad2deg(np.arctan2(world_lidar_data[:,1], world_lidar_data[:,0]))
+    return np.squeeze(np.dstack((phi, thera, r)))
+
+def spherical2world(spherical_lidar_data):
+    spherical_lidar_data[:,0] = np.deg2rad(spherical_lidar_data[:,0])
+    spherical_lidar_data[:,1] = np.deg2rad(spherical_lidar_data[:,1])
+    z = spherical_lidar_data[:,2] * np.cos(spherical_lidar_data[:,1])
+    y = spherical_lidar_data[:,2] * np.sin(spherical_lidar_data[:,1]) * np.sin(spherical_lidar_data[:,0])
+    x = spherical_lidar_data[:,2] * np.sin(spherical_lidar_data[:,1]) * np.cos(spherical_lidar_data[:,0])
+    return np.squeeze(np.dstack((x,y,z)))
 
 
 if __name__ == '__main__':
