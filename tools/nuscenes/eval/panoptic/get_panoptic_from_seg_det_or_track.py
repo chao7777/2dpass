@@ -10,15 +10,15 @@ from typing import List, Tuple, Union
 import numpy as np
 from tqdm import tqdm
 
-from nuscenes.eval.common.loaders import load_prediction, add_center_dist
-from nuscenes.eval.common.utils import boxes_to_sensor
-from nuscenes.eval.detection.data_classes import DetectionBox
-from nuscenes.eval.lidarseg.utils import get_samples_in_eval_set
-from nuscenes.eval.panoptic.utils import PanopticClassMapper
-from nuscenes.eval.tracking.data_classes import TrackingBox
-from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarSegPointCloud
-from nuscenes.utils.geometry_utils import points_in_box
+from tools.nuscenes.eval.common.loaders import load_prediction, add_center_dist
+from tools.nuscenes.eval.common.utils import boxes_to_sensor
+from tools.nuscenes.eval.detection.data_classes import DetectionBox
+from tools.nuscenes.eval.lidarseg.utils import get_samples_in_eval_set
+from tools.nuscenes.eval.panoptic.utils import PanopticClassMapper
+from tools.nuscenes.eval.tracking.data_classes import TrackingBox
+from tools.nuscenes import NuScenes
+from tools.nuscenes.utils.data_classes import LidarSegPointCloud
+from tools.nuscenes.utils.geometry_utils import points_in_box
 
 
 OVERLAP_THRESHOLD = 0.5  # Amount by which an instance can overlap with other instances, before it is discarded.
@@ -34,7 +34,7 @@ def generate_panoptic_labels(nusc: NuScenes,
                              verbose: bool = False):
     """
     Generate NuScenes lidar panoptic predictions.
-    :param nusc: A instance of NuScenes.
+    :param nusc: A instance of nuscenes.
     :param lidarseg_preds_folder: Path to the directory where the lidarseg predictions are stored.
     :param preds_json: Path of the json where the tracking / detection predictions are stored.
     :param eval_set: Which dataset split to evaluate on, train, val or test.

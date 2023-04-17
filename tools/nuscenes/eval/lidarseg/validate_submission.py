@@ -6,9 +6,9 @@ import shutil
 import numpy as np
 from tqdm import tqdm
 
-from nuscenes import NuScenes
-from nuscenes.eval.lidarseg.utils import LidarsegClassMapper, get_samples_in_eval_set
-from nuscenes.utils.data_classes import LidarPointCloud
+from tools.nuscenes import NuScenes
+from tools.nuscenes.eval.lidarseg.utils import LidarsegClassMapper, get_samples_in_eval_set
+from tools.nuscenes.utils.data_classes import LidarPointCloud
 
 
 def validate_submission(nusc: NuScenes,

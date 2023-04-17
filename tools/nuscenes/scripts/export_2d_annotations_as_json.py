@@ -21,8 +21,8 @@ from pyquaternion.quaternion import Quaternion
 from shapely.geometry import MultiPoint, box
 from tqdm import tqdm
 
-from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.geometry_utils import view_points
+from tools.nuscenes import NuScenes
+from tools.nuscenes.utils.geometry_utils import view_points
 
 
 def post_process_coords(corner_coords: List,

@@ -4,7 +4,7 @@
 import json
 import os
 
-from nuscenes.eval.detection.data_classes import DetectionConfig
+from tools.nuscenes.eval.detection.data_classes import DetectionConfig
 
 
 def config_factory(configuration_name: str) -> DetectionConfig:

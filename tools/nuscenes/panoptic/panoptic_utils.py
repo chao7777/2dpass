@@ -5,9 +5,9 @@ Code written by Motional and the Robot Learning Lab, University of Freiburg.
 from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
-from nuscenes.lidarseg.lidarseg_utils import colormap_to_colors
-from nuscenes.utils.color_map import get_colormap
-from nuscenes.utils.data_io import load_bin_file
+from tools.nuscenes.lidarseg.lidarseg_utils import colormap_to_colors
+from tools.nuscenes.utils.color_map import get_colormap
+from tools.nuscenes.utils.data_io import load_bin_file
 
 
 STUFF_START_CLASS_ID = 24

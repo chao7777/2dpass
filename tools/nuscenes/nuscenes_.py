@@ -20,15 +20,15 @@ from matplotlib.axes import Axes
 from pyquaternion import Quaternion
 from tqdm import tqdm
 
-from nuscenes.lidarseg.lidarseg_utils import colormap_to_colors, plt_to_cv2, get_stats, \
+from tools.nuscenes.lidarseg.lidarseg_utils import colormap_to_colors, plt_to_cv2, get_stats, \
     get_labels_in_coloring, create_lidarseg_legend, paint_points_label
-from nuscenes.panoptic.panoptic_utils import paint_panop_points_label, stuff_cat_ids, get_frame_panoptic_instances,\
+from tools.nuscenes.panoptic.panoptic_utils import paint_panop_points_label, stuff_cat_ids, get_frame_panoptic_instances,\
     get_panoptic_instances_stats
-from nuscenes.utils.data_classes import LidarPointCloud, RadarPointCloud, Box
-from nuscenes.utils.data_io import load_bin_file, panoptic_to_lidarseg
-from nuscenes.utils.geometry_utils import view_points, box_in_image, BoxVisibility, transform_matrix
-from nuscenes.utils.map_mask import MapMask
-from nuscenes.utils.color_map import get_colormap
+from tools.nuscenes.utils.data_classes import LidarPointCloud, RadarPointCloud, Box
+from tools.nuscenes.utils.data_io import load_bin_file, panoptic_to_lidarseg
+from tools.nuscenes.utils.geometry_utils import view_points, box_in_image, BoxVisibility, transform_matrix
+from tools.nuscenes.utils.map_mask import MapMask
+from tools.nuscenes.utils.color_map import get_colormap
 
 PYTHON_VERSION = sys.version_info[0]
 

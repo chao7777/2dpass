@@ -5,7 +5,7 @@ import os
 import unittest
 
 from nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarPointCloud, RadarPointCloud
+from tools.nuscenes.utils.data_classes import LidarPointCloud, RadarPointCloud
 
 
 class TestDataClasses(unittest.TestCase):

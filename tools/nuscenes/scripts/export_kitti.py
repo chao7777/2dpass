@@ -45,12 +45,12 @@ import numpy as np
 from PIL import Image
 from pyquaternion import Quaternion
 
-from nuscenes.eval.detection.utils import category_to_detection_name
-from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarPointCloud, Box
-from nuscenes.utils.geometry_utils import BoxVisibility, transform_matrix
-from nuscenes.utils.kitti import KittiDB
-from nuscenes.utils.splits import create_splits_logs
+from tools.nuscenes.eval.detection.utils import category_to_detection_name
+from tools.nuscenes import NuScenes
+from tools.nuscenes.utils.data_classes import LidarPointCloud, Box
+from tools.nuscenes.utils.geometry_utils import BoxVisibility, transform_matrix
+from tools.nuscenes.utils.kitti import KittiDB
+from tools.nuscenes.utils.splits import create_splits_logs
 
 
 class KittiConverter:

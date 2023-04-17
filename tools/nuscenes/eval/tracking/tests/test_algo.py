@@ -5,11 +5,11 @@ from typing import Tuple, Dict, List
 
 import numpy as np
 
-from nuscenes.eval.common.config import config_factory
-from nuscenes.eval.tracking.algo import TrackingEvaluation
-from nuscenes.eval.tracking.data_classes import TrackingMetricData, TrackingBox
-from nuscenes.eval.tracking.loaders import interpolate_tracks
-from nuscenes.eval.tracking.tests.scenarios import get_scenarios
+from tools.nuscenes.eval.common.config import config_factory
+from tools.nuscenes.eval.tracking.algo import TrackingEvaluation
+from tools.nuscenes.eval.tracking.data_classes import TrackingMetricData, TrackingBox
+from tools.nuscenes.eval.tracking.loaders import interpolate_tracks
+from tools.nuscenes.eval.tracking.tests.scenarios import get_scenarios
 
 
 class TestAlgo(unittest.TestCase):

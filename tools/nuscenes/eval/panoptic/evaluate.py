@@ -25,12 +25,12 @@ import os
 from typing import Any, Dict
 
 import numpy as np
-from nuscenes.eval.panoptic.panoptic_seg_evaluator import PanopticEval
-from nuscenes.eval.panoptic.panoptic_track_evaluator import PanopticTrackingEval
-from nuscenes.eval.panoptic.utils import PanopticClassMapper, get_samples_in_panoptic_eval_set
-from nuscenes.nuscenes import NuScenes
-from nuscenes.utils.data_io import load_bin_file
-from nuscenes.utils.splits import create_splits_scenes
+from tools.nuscenes.eval.panoptic.panoptic_seg_evaluator import PanopticEval
+from tools.nuscenes.eval.panoptic.panoptic_track_evaluator import PanopticTrackingEval
+from tools.nuscenes.eval.panoptic.utils import PanopticClassMapper, get_samples_in_panoptic_eval_set
+from tools.nuscenes import NuScenes
+from tools.nuscenes.utils.data_io import load_bin_file
+from tools.nuscenes.utils.splits import create_splits_scenes
 from tqdm import tqdm
 
 

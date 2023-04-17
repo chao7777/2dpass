@@ -6,7 +6,7 @@ Code written by Motional and the Robot Learning Lab, University of Freiburg.
 from typing import Dict, List, Tuple
 
 import numpy as np
-from nuscenes.eval.panoptic.panoptic_seg_evaluator import PanopticEval
+from tools.nuscenes.eval.panoptic.panoptic_seg_evaluator import PanopticEval
 
 
 class PanopticTrackingEval(PanopticEval):

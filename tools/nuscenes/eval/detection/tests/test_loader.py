@@ -4,12 +4,12 @@
 import os
 import unittest
 
-from nuscenes import NuScenes
-from nuscenes.eval.common.config import config_factory
-from nuscenes.eval.common.data_classes import EvalBoxes
-from nuscenes.eval.common.loaders import filter_eval_boxes
-from nuscenes.eval.detection.data_classes import DetectionBox
-from nuscenes.eval.common.loaders import _get_box_class_field
+from tools.nuscenes import NuScenes
+from tools.nuscenes.eval.common.config import config_factory
+from tools.nuscenes.eval.common.data_classes import EvalBoxes
+from tools.nuscenes.eval.common.loaders import filter_eval_boxes
+from tools.nuscenes.eval.detection.data_classes import DetectionBox
+from tools.nuscenes.eval.common.loaders import _get_box_class_field
 
 
 class TestLoader(unittest.TestCase):

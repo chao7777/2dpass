@@ -34,18 +34,18 @@ nusc.render_sample(my_sample['token'],
 
 my_scene = nusc.scene[0]
 
-# nusc.render_scene_channel_lidarseg(my_scene['token'],
-#                                    'CAM_FRONT',
-#                                    out_folder='/home/qi.chao/c7/mycode/nuscenes-devkit/work_dir/jpg/render_scene_channel_lidarseg',
-#                                    render_mode='video',
-#                                    filter_lidarseg_labels=[30],
-#                                 #    verbose=True,
-#                                 #    dpi=100,
-#                                    imsize=(1280, 720))
+nusc.render_scene_channel_lidarseg(my_scene['token'],
+                                   'CAM_FRONT',
+                                   out_folder='/home/qi.chao/c7/mycode/nuscenes-devkit/work_dir/jpg/render_scene_channel_lidarseg',
+                                   render_mode='video',
+                                   filter_lidarseg_labels=[30],
+                                #    verbose=True,
+                                #    dpi=100,
+                                   imsize=(1280, 720))
 
-# nusc.render_scene_lidarseg(my_scene['token'],
-#                            filter_lidarseg_labels=[30],
-#                            out_path='/home/qi.chao/c7/mycode/nuscenes-devkit/work_dir/jpg/render_scene_lidarseg.avi'
-#                         #    verbose=True,
-#                         #    dpi=100,
-#                            )
+nusc.render_scene_lidarseg(my_scene['token'],
+                           filter_lidarseg_labels=[30],
+                           out_path='/home/qi.chao/c7/mycode/nuscenes-devkit/work_dir/jpg/render_scene_lidarseg.avi'
+                        #    verbose=True,
+                        #    dpi=100,
+                           )
