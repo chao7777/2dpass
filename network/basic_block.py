@@ -11,6 +11,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torchvision.models.resnet import resnet34
+from torchvision.models.regnet import regnet_y_3_2gf
+from torchvision.models.segmentation.deeplabv3 import deeplabv3_resnet50
 from utils.lovasz_loss import lovasz_softmax
 
 

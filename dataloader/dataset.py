@@ -9,7 +9,8 @@ from PIL import Image
 from torch.utils import data
 from torchvision import transforms as T
 from pyquaternion import Quaternion
-from nuscenes.utils.geometry_utils import view_points
+from tools.nuscenes.utils.geometry_utils import view_points
+from tools.pandaset import geometry
 
 REGISTERED_DATASET_CLASSES = {}
 REGISTERED_COLATE_CLASSES = {}
@@ -709,6 +710,138 @@ class point_image_dataset_nus(data.Dataset):
         data_dict['point2img_index'] = point2img_index
 
         return data_dict
+
+@register_dataset
+class point_image_dataset_pandaset(data.Dataset):
+    def __init__(self, in_dataset, config, loader_config):
+        self.point_cloud_dataset = in_dataset
+        self.config = config
+        self.loader_config = loader_config
+        self.ignore_label = config['dataset_params']['ignore_label']
+        self.rotate_aug = loader_config['rotate_aug']
+        self.flip_aug = loader_config['flip_aug']
+        self.transform = loader_config['transform_aug']
+        self.scale_aug = loader_config['scale_aug']
+        self.dropout = loader_config['dropout_aug']
+        self.trans_std = config['dataset_params']['trans_std']
+        self.max_dropout_ratio = config['dataset_params']['max_dropout_ratio']
+        self.max_volume_space = config['dataset_params']['max_volume_space']
+        self.min_volume_space = config['dataset_params']['min_volume_space']
+        color_jitter = config['dataset_params']['color_jitter']
+        self.resize = config['dataset_params'].get('resize', False)
+        self.color_jitter = T.ColorJitter(*color_jitter) if color_jitter else None
+        self.flip2d = config['dataset_params']['flip2d']
+        self.image_normalizer = config['dataset_params'].get('image_normalizer', False)
+
+    def __len__(self):
+        return len(self.point_cloud_dataset)
+
+    def __getitem__(self, index):
+        data_dict = self.point_cloud_dataset[index]
+        lidar2ego_xyz = geometry.lidar_points_to_ego(data_dict['xyz'], data_dict['calib_info']['lidar_pose'])
+        ref_pc = lidar2ego_xyz.copy()
+        ref_labels = data_dict['labels'].copy() 
+        ref_index = np.arange(len(ref_pc))
+
+        mask_x = np.logical_and(lidar2ego_xyz[:, 0] > self.min_volume_space[0], lidar2ego_xyz[:, 0] < self.max_volume_space[0])
+        mask_y = np.logical_and(lidar2ego_xyz[:, 1] > self.min_volume_space[1], lidar2ego_xyz[:, 1] < self.max_volume_space[1])
+        mask_z = np.logical_and(lidar2ego_xyz[:, 2] > self.min_volume_space[2], lidar2ego_xyz[:, 2] < self.max_volume_space[2])
+        mask = np.logical_and(mask_x, np.logical_and(mask_y, mask_z))
+        lidar2ego_xyz = lidar2ego_xyz[mask]
+        ref_pc = ref_pc[mask]
+        data_dict['labels'] = data_dict['labels'][mask]
+        ref_index = ref_index[mask]
+        data_dict['signal'] = data_dict['signal'][mask]
+        point_num = len(lidar2ego_xyz) 
+
+        if self.dropout and self.point_cloud_dataset.imageset == 'train':
+            dropout_ratio = np.random.random() * self.max_dropout_ratio
+            drop_idx = np.where(np.random.random((lidar2ego_xyz.shape[0])) <= dropout_ratio)[0]
+
+            if len(drop_idx) > 0:
+                lidar2ego_xyz[drop_idx, :] = lidar2ego_xyz[0, :]
+                data_dict['labels'][drop_idx, :] = data_dict['labels'][0, :]
+                data_dict['signal'][drop_idx, :] = data_dict['signal'][0, :]
+                ref_index[drop_idx] = ref_index[0]
+        
+        ego2lidar_xyz = geometry.ego_to_lidar_point(lidar2ego_xyz, data_dict['calib_info']['lidar_pose'])
+        projected_points2d, _, inner_indices = geometry.projection(lidar_points=ego2lidar_xyz[:, :3], 
+                                                                    camera_data=data_dict['img'],
+                                                                    camera_pose=data_dict['calib_info']['camera_pose'],
+                                                                    camera_intrinsics=data_dict['calib_info']['camera_intrinsics'],
+                                                                    filter_outliers=True)
+        points_img = np.ascontiguousarray(projected_points2d)
+        if self.rotate_aug:
+            rotate_rad = np.deg2rad(np.random.random() * 360)
+            c, s = np.cos(rotate_rad), np.sin(rotate_rad)
+            j = np.matrix([[c, s], [-s, c]])
+            lidar2ego_xyz[:, :2] = np.dot(lidar2ego_xyz[:, :2], j)
+        
+        if self.flip_aug:
+            flip_type = np.random.choice(4, 1)
+            if flip_type == 1:
+                lidar2ego_xyz[:, 0] = -lidar2ego_xyz[:, 0]
+            elif flip_type == 2:
+                lidar2ego_xyz[:, 1] = -lidar2ego_xyz[:, 1]
+            elif flip_type == 3:
+                lidar2ego_xyz[:, :2] = -lidar2ego_xyz[:, :2]
+
+        if self.scale_aug:
+            noise_scale = np.random.uniform(0.95, 1.05)
+            lidar2ego_xyz[:, 0] = noise_scale * lidar2ego_xyz[:, 0]
+            lidar2ego_xyz[:, 1] = noise_scale * lidar2ego_xyz[:, 1]
+        
+        if self.transform:
+            noise_translate = np.array([np.random.normal(0, self.trans_std[0], 1),
+                                        np.random.normal(0, self.trans_std[1], 1),
+                                        np.random.normal(0, self.trans_std[2], 1)]).T
+
+            lidar2ego_xyz[:, 0:3] += noise_translate
+        
+        point2img_index = np.arange(len(inner_indices))[inner_indices]
+        feat = np.concatenate((lidar2ego_xyz, data_dict['signal']), axis=1)
+        if self.resize:
+            assert data_dict['img'].size[0] > self.resize[0]
+
+            # scale image points
+            points_img[:, 0] = float(self.resize[1]) / data_dict['img'].size[1] * np.floor(points_img[:, 0])
+            points_img[:, 1] = float(self.resize[0]) / data_dict['img'].size[0] * np.floor(points_img[:, 1])
+
+            # resize image
+            data_dict['img'] = data_dict['img'].resize(self.resize, Image.BILINEAR)
+
+        img_indices = points_img.astype(np.int64)
+
+        if self.color_jitter is not None:
+            data_dict['img'] = self.color_jitter(data_dict['img'])
+
+        data_dict['img'] = np.array(data_dict['img'], dtype=np.float32, copy=False) / 255.
+
+        if np.random.rand() < self.flip2d:
+            data_dict['img'] = np.ascontiguousarray(data_dict['img'])
+            img_indices[:, 1] = data_dict['img'].shape[1] - 1 - img_indices[:, 1]
+
+        if self.image_normalizer:
+            mean, std = self.image_normalizer
+            mean = np.asarray(mean, dtype=np.float32)
+            std = np.asarray(std, dtype=np.float32)
+            data_dict['img'] = (data_dict['img'] - mean) / std
+        
+        data_dict_res = {
+            'point_feat': feat,
+            'point_label':data_dict['labels'],
+            'ref_xyz':ref_pc,
+            'ref_label':ref_labels,
+            'ref_index':ref_index,
+            'mask':mask,
+            'point_num':point_num,
+            'origin_len':data_dict['origin_len'],
+            'img':data_dict['img'],
+            'img_indices':img_indices,
+            'img_label':points_img,
+            'point2img_index':point2img_index
+        }
+        return data_dict_res
 
 
 @register_dataset

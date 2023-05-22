@@ -41,12 +41,12 @@ class SegAug:
         seg_seed_lidar_data_info = self.get_lidar_info(seg_seed_lidar_data_path)
         tar_camera = self.tar_seq.camera[tar_camera_name]
         tar_lidar = self.tar_seq.lidar
-        # points3d_lidar_xyz = tar_lidar.data[tar_seq_idx].to_numpy()
-        # tar_semseg = self.tar_seq.semseg[tar_seq_idx].to_numpy()
-        points3d_lidar_xyz = np.array(read_data('work_dirs/pandaset/jpg/car/clust_label_data/label_5_lidar_data'))
-        points3d_lidar_xyz_ = np.array(read_data('work_dirs/pandaset/jpg/building/clust_label_data/label_11_lidar_data'))
-        points3d_lidar_xyz = np.concatenate((points3d_lidar_xyz, points3d_lidar_xyz_), axis=0)
-        tar_semseg = np.ones(points3d_lidar_xyz.shape[0]).reshape(-1,1)
+        points3d_lidar_xyz = tar_lidar.data[tar_seq_idx].to_numpy()
+        tar_semseg = self.tar_seq.semseg[tar_seq_idx].to_numpy()
+        # points3d_lidar_xyz = np.array(read_data('work_dirs/pandaset/jpg/car/clust_label_data/label_5_lidar_data'))
+        # points3d_lidar_xyz_ = np.array(read_data('work_dirs/pandaset/jpg/building/clust_label_data/label_11_lidar_data'))
+        # points3d_lidar_xyz = np.concatenate((points3d_lidar_xyz, points3d_lidar_xyz_), axis=0)
+        # tar_semseg = np.ones(points3d_lidar_xyz.shape[0]).reshape(-1,1)
         projected_points2d, seg_seed_lidar_data_paste = self.spherical_coord_ego_lidar_paste(seg_seed_lidar_data, 
                                                                                              seg_seed_lidar_data_info,
                                                                                              tar_lidar,
