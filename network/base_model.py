@@ -10,16 +10,16 @@ import torch
 import yaml
 import json
 import numpy as np
-import pytorch_lightning as pl
+import lightning
 
 from datetime import datetime
-from pytorch_lightning.metrics import Accuracy
+from torchmetrics import Accuracy
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR
 from utils.metric_util import IoU
 from utils.schedulers import cosine_schedule_with_warmup
 
 
-class LightningBaseModel(pl.LightningModule):
+class LightningBaseModel(lightning.LightningModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -109,6 +109,8 @@ class LightningBaseModel(pl.LightningModule):
 
 
     def validation_step(self, data_dict, batch_idx):
+        # self.print('start valid cal iou\n')
+        # self.print(str(batch_idx) + '\n')
         indices = data_dict['indices']
         raw_labels = data_dict['raw_labels'].squeeze(1).cpu()
         origin_len = data_dict['origin_len']
@@ -116,7 +118,7 @@ class LightningBaseModel(pl.LightningModule):
         data_dict = self.forward(data_dict)
 
         if self.args['test']:
-            vote_logits.index_add_(0, indices.cpu(), data_dict['logits'].cpu())
+            vote_logits.index_add_(0, indices.cpu(), data_dict['logits'].cpu( ))
             if self.args['dataset_params']['pc_dataset_type'] == 'SemanticKITTI_multiscan':
                 vote_logits = vote_logits[:origin_len]
                 raw_labels = raw_labels[:origin_len]
@@ -134,7 +136,7 @@ class LightningBaseModel(pl.LightningModule):
 
         self.val_acc(prediction, raw_labels)
         self.log('val/acc', self.val_acc, on_epoch=True)
-        self.val_iou(
+        self.val_iou.update(
             prediction.cpu().detach().numpy(),
             raw_labels.cpu().detach().numpy(),
          )
@@ -166,7 +168,7 @@ class LightningBaseModel(pl.LightningModule):
         if not self.args['submit_to_server']:
             self.val_acc(prediction, raw_labels)
             self.log('val/acc', self.val_acc, on_epoch=True)
-            self.val_iou(
+            self.val_iou.update(
                 prediction.cpu().detach().numpy(),
                 raw_labels.cpu().detach().numpy(),
              )
@@ -218,7 +220,7 @@ class LightningBaseModel(pl.LightningModule):
 
         return data_dict['loss']
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         iou, best_miou = self.val_iou.compute()
         mIoU = np.nanmean(iou)
         str_print = ''
@@ -232,7 +234,7 @@ class LightningBaseModel(pl.LightningModule):
         str_print += '\nCurrent val miou is %.3f while the best val miou is %.3f' % (mIoU * 100, best_miou * 100)
         self.print(str_print)
 
-    def test_epoch_end(self, outputs):
+    def on_test_epoch_end(self):
         if not self.args['submit_to_server']:
             iou, best_miou = self.val_iou.compute()
             mIoU = np.nanmean(iou)

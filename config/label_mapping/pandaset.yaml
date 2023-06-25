@@ -10,6 +10,12 @@ train_list: ['040', '041', '089', '029', '066', '043', '139', '106',
 
 val_list: ['094', '103', '102', '122', '033', '038', '035']
 
+pandaset_dir: '/share/qi.chao/open_sor_data/pandaset/pandaset_0'
+
+seg_grabcut_dir: '/share/qi.chao/open_sor_data/pandaset/seed_jpg/grabcut'
+
+seg_seed_lidar_dir: '/share/qi.chao/open_sor_data/pandaset/seed_jpg/lidar'
+
 labels:
   {1: 'Smoke', 2: 'Exhaust', 3: 'Spray or rain', 4: "Reflection", 5: 'Vegetation', 6: 'Ground', 7: 'Road',
    8: 'Lane Line Marking', 9: 'Stop Line Marking', 10: 'Other Road Marking', 11: 'Sidewalk', 12: 'Driveway', 
@@ -20,10 +26,10 @@ labels:
    33: 'Animals - Other', 34: 'Pylons', 35: 'Road Barriers', 36: 'Signs', 37: 'Cones', 38: 'Construction Signs',
    39: 'Temporary Construction Barriers', 40: 'Rolling Containers', 41: 'Building', 42: 'Other Static Object'}
 
-labels_sim:
-  {0: 'other', 1: 'Vegetation', 2: 'Ground', 3: 'Road', 4: 'road_mark', 5: 'Sidewalk', 6: 'warning_pole', 7: 'car',
+labels_seg:
+  {1: 'Vegetation', 3: 'Road', 4: 'road_mark', 5: 'Sidewalk', 6: 'warning_pole', 7: 'car',
    8: pickup_truck, 9: 'truck', 10: 'Motorcycle', 11: 'Pedicab', 12: 'rolling_Containers', 13: 'bus', 14: 'Bicycle',
-   15: 'Trolley', 16: 'Pedestrian', 17: 'animal', 18: 'Barriers', 19: 'Signs', 20: 'cone', 21: 'building'}
+   16: 'Pedestrian', 17: 'animal', 18: 'Barriers', 19: 'Signs', 20: 'cone', 21: 'building'}
   
 learning_map:
   {1: 0, 2: 0, 3: 0, 4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: 4, 10: 4, 11: 5, 12: 0, 13: 7, 14: 8, 15: 9, 16: 0, 17: 0,
@@ -31,3 +37,7 @@ learning_map:
    32: 17, 33: 17, 34: 6, 35: 18, 36: 19, 37: 20, 38: 0, 39: 0, 40: 12, 41: 21, 42: 0}
 
 seg_paste: [1, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20]
+
+paste2label: 
+  {1: [6, 11], 8: [7, 8, 9, 10], 9: [7, 8, 9, 10], 10: [7, 8, 9, 10, 11], 11: [7, 8, 9, 10, 11], 
+   12: [11], 13: [7, 8, 9, 10], 14: [6, 7, 8, 9, 10, 11], 16: [7, 8, 9, 10], 18: [7], 20: [6, 11]}

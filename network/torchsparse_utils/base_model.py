@@ -10,16 +10,16 @@ import torch
 import yaml
 import json
 import numpy as np
-import pytorch_lightning as pl
+import lightning
 
 from datetime import datetime
-from pytorch_lightning.metrics import Accuracy
+from torchmetrics import Accuracy
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts, CosineAnnealingLR
 from utils.metric_util import IoU
 from utils.schedulers import cosine_schedule_with_warmup
 
 
-class LightningBaseModel(pl.LightningModule):
+class LightningBaseModel(lightning.LightningModule):
     def __init__(self, args, criterion):
         super().__init__()
         self.args = args

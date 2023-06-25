@@ -12,17 +12,17 @@ import torch
 import datetime
 import importlib
 import numpy as np
-import pytorch_lightning as pl
+import lightning
 
 from easydict import EasyDict
 from argparse import ArgumentParser
-from pytorch_lightning import loggers as pl_loggers
-from pytorch_lightning.profiler import SimpleProfiler
-from pytorch_lightning.callbacks import ModelCheckpoint, StochasticWeightAveraging
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch import loggers as pl_loggers
+from lightning.pytorch.profilers import SimpleProfiler
+from lightning.pytorch.callbacks import ModelCheckpoint, StochasticWeightAveraging
+from lightning.pytorch.callbacks import EarlyStopping
 from dataloader.dataset import get_model_class, get_collate_class
 from dataloader.pc_dataset import get_pc_model_class
-from pytorch_lightning.callbacks import LearningRateMonitor
+from lightning.pytorch.callbacks import LearningRateMonitor
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -139,23 +139,15 @@ if __name__ == '__main__':
     num_gpu = len(configs.gpu)
 
     # output path
-    log_folder = 'logs/' + configs['dataset_params']['pc_dataset_type']
+    log_folder = os.path.join('work_dirs/train_log', configs['dataset_params']['pc_dataset_type'])
+    
     tb_logger = pl_loggers.TensorBoardLogger(log_folder, name=configs.log_dir, default_hp_metric=False)
     os.makedirs(f'{log_folder}/{configs.log_dir}', exist_ok=True)
-    profiler = SimpleProfiler(output_filename=f'{log_folder}/{configs.log_dir}/profiler.txt')
+    profiler = SimpleProfiler(dirpath=os.path.join(log_folder, configs.log_dir), filename='profiler.txt')
     np.set_printoptions(precision=4, suppress=True)
 
     # save the backup files
     backup_dir = os.path.join(log_folder, configs.log_dir, 'backup_files_%s' % str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')))
-    if not configs['test']:
-        os.makedirs(backup_dir, exist_ok=True)
-        os.system('cp main.py {}'.format(backup_dir))
-        os.system('cp dataloader/dataset.py {}'.format(backup_dir))
-        os.system('cp dataloader/pc_dataset.py {}'.format(backup_dir))
-        os.system('cp {} {}'.format(configs.config_path, backup_dir))
-        os.system('cp network/base_model.py {}'.format(backup_dir))
-        os.system('cp network/baseline.py {}'.format(backup_dir))
-        os.system('cp {}.py {}'.format('network/' + configs['model_params']['model_architecture'], backup_dir))
 
     # reproducibility
     torch.manual_seed(configs.seed)
@@ -168,7 +160,7 @@ if __name__ == '__main__':
     model_file = importlib.import_module('network.' + configs['model_params']['model_architecture'])
     my_model = model_file.get_model(configs)
 
-    pl.seed_everything(configs.seed)
+    lightning.seed_everything(configs.seed)
     checkpoint_callback = ModelCheckpoint(
         monitor=configs.monitor,
         mode='max',
@@ -178,7 +170,8 @@ if __name__ == '__main__':
     if configs.checkpoint is not None:
         print('load pre-trained model...')
         if configs.fine_tune or configs.test or configs.pretrain2d:
-            my_model = my_model.load_from_checkpoint(configs.checkpoint, config=configs, strict=(not configs.pretrain2d))
+            # my_model = my_model.load_from_checkpoint(configs.checkpoint, config=configs, strict=(not configs.pretrain2d))
+            my_model = my_model.load_from_checkpoint(configs.checkpoint, hparams_file='path/hparams_file', strict=(not configs.pretrain2d))
         else:
             # continue last training
             my_model = my_model.load_from_checkpoint(configs.checkpoint)
@@ -191,10 +184,9 @@ if __name__ == '__main__':
     if not configs.test:
         # init trainer
         print('Start training...')
-        trainer = pl.Trainer(gpus=[i for i in range(num_gpu)],
-                             accelerator='ddp',
+        trainer = lightning.Trainer(devices=[i for i in range(num_gpu)],
+                             accelerator='gpu',
                              max_epochs=configs['train_params']['max_num_epochs'],
-                             resume_from_checkpoint=configs.checkpoint if not configs.fine_tune and not configs.pretrain2d else None,
                              callbacks=[checkpoint_callback,
                                         LearningRateMonitor(logging_interval='step'),
                                         EarlyStopping(monitor=configs.monitor,
@@ -208,13 +200,14 @@ if __name__ == '__main__':
                              gradient_clip_val=1,
                              accumulate_grad_batches=1
                              )
-        trainer.fit(my_model, train_dataset_loader, val_dataset_loader)
+        print('start_fit')
+        trainer.fit(my_model, train_dataset_loader, val_dataset_loader, ckpt_path=configs.checkpoint if not configs.fine_tune and not configs.pretrain2d else None)
 
     else:
         print('Start testing...')
         assert num_gpu == 1, 'only support single GPU testing!'
-        trainer = pl.Trainer(gpus=[i for i in range(num_gpu)],
-                             accelerator='ddp',
+        trainer = lightning.Trainer(devices=[i for i in range(num_gpu)],
+                             accelerator='gpu',
                              resume_from_checkpoint=configs.checkpoint,
                              logger=tb_logger,
                              profiler=profiler)

@@ -15,7 +15,6 @@ from tools.pandaset import geometry
 
 REGISTERED_PC_DATASET_CLASSES = {}
 
-
 def register_dataset(cls, name=None):
     global REGISTERED_PC_DATASET_CLASSES
     if name is None:
@@ -74,6 +73,7 @@ class SemanticKITTI(data.Dataset):
         seg_num_per_class = config['dataset_params']['seg_labelweights']
         seg_labelweights = seg_num_per_class / np.sum(seg_num_per_class)
         self.seg_labelweights = np.power(np.amax(seg_labelweights) / seg_labelweights, 1 / 3.0)
+        print(len(self.im_idx))
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -132,6 +132,7 @@ class SemanticKITTI(data.Dataset):
         data_dict['origin_len'] = origin_len
         data_dict['img'] = image
         data_dict['proj_matrix'] = proj_matrix
+        data_dict['path'] = self.im_idx[index]
 
         return data_dict, self.im_idx[index]
 
@@ -171,7 +172,6 @@ class nuScenes(data.Dataset):
         scenes = list(filter(lambda x: x in available_scene_names, scenes))
         scenes = set([self.available_scenes[available_scene_names.index(s)]['token'] for s in scenes])
         self.get_path_infos_cam_lidar(scenes)
-
         print('Total %d scenes in the %s split' % (len(self.token_list), imageset))
 
     def __len__(self):
@@ -288,27 +288,29 @@ class nuScenes(data.Dataset):
         data_dict['labels'] = sem_label.astype(np.uint8)
         data_dict['signal'] = pointcloud[:, 3:4]
         data_dict['origin_len'] = len(pointcloud)
+        data_dict['cam_path'] = cam_path
 
         return data_dict, lidar_sample_token
 
 @register_dataset
 class Pandaset(data.Dataset):
-    def __init__(self, config, datapath, imageset='train'):
+    def __init__(self, config, data_path, imageset='train'):
         self.config = config
         dataset_yaml = yaml.safe_load(open(config['dataset_params']['label_mapping']))
         if imageset == 'train':
-            self.data_path = [os.path.join(datapath, x) for x in dataset_yaml['train_list']]
+            self.data_path = [os.path.join(data_path, x) for x in dataset_yaml['train_list']]
         else:
-            self.data_path = [os.path.join(datapath, x) for x in dataset_yaml['val_list']]
+            self.data_path = [os.path.join(data_path, x) for x in dataset_yaml['val_list']]
         self.learning_map = dataset_yaml['learning_map']
         self.camera_list = ['back_camera', 'front_camera', 'front_left_camera', 'front_right_camera', 'left_camera', 'right_camera']
         self.get_available_scenes()
+        print('total {} scenes'.format(str(len(self.ava_scenes))))
     
     def get_available_scenes(self):
         self.ava_scenes = []
         for data_dir in self.data_path:
             lidar_paths = os.listdir(os.path.join(data_dir, 'lidar'))
-            for path in lidar_paths:
+            for path in lidar_paths[:1]:
                 if 'pkl.gz' not in path:continue
                 self.ava_scenes.extend([data_dir, path.split('.pkl.gz')[0], x] for x in self.camera_list)
 
@@ -320,39 +322,50 @@ class Pandaset(data.Dataset):
         ava_scenes_idx = self.ava_scenes[index]
         lidar_data = pickle.load(gzip.open(os.path.join(ava_scenes_idx[0], 'lidar', ava_scenes_idx[1]+'.pkl.gz'))).values
         semseg_data = pickle.load(gzip.open(os.path.join(ava_scenes_idx[0], 'annotations', 'semseg', ava_scenes_idx[1]+'.pkl.gz'))).values
-        camera_name = ava_scenes_idx[2]
+        cuboids_data = pickle.load(gzip.open(os.path.join(ava_scenes_idx[0], 'annotations', 'cuboids', ava_scenes_idx[1]+'.pkl.gz'))).values
         camera_data = Image.open(os.path.join(ava_scenes_idx[0], 'camera', ava_scenes_idx[2], ava_scenes_idx[1]+'.jpg'))
-        camera_pose = json.load(open(os.path.join(ava_scenes_idx[0], 'camera', ava_scenes_idx[2], 'poses.json')))[0]
-        lidar_pose = json.load(open(os.path.join(ava_scenes_idx[0], 'lidar', 'poses.json')))[0]
+        camera_pose = json.load(open(os.path.join(ava_scenes_idx[0], 'camera', ava_scenes_idx[2], 'poses.json')))[int(ava_scenes_idx[1])]
+        lidar_pose = json.load(open(os.path.join(ava_scenes_idx[0], 'lidar', 'poses.json')))[int(ava_scenes_idx[1])]
         camera_intrinsics = json.load(open(os.path.join(ava_scenes_idx[0], 'camera', ava_scenes_idx[2], 'intrinsics.json')))
         camera_intrinsics = Intrinsics(fx=camera_intrinsics['fx'],
                                         fy=camera_intrinsics['fy'],
                                         cx=camera_intrinsics['cx'],
                                         cy=camera_intrinsics['cy'])
-        projected_points2d, _, inner_indices = geometry.projection(lidar_points=lidar_data[:, :3], 
-                                                                    camera_data=camera_data,
+        calib_info = {
+            'camera_pose': camera_pose,
+            'lidar_pose': lidar_pose,
+            'camera_intrinsics': camera_intrinsics,
+            'sub_dir': ava_scenes_idx[0],
+            'idx': ava_scenes_idx[1],
+            'camera_name': ava_scenes_idx[2],
+        }
+        data_dict = {
+            'lidar_data': lidar_data,
+            'cuboids_data': cuboids_data,
+            'calib_info': calib_info,
+            'semseg': semseg_data,
+            'label_seg': np.vectorize(self.learning_map.__getitem__)(semseg_data),
+            'camera_data': camera_data
+        }
+        if self.config['dataset_params']['use_seg_paste']:
+            #更新data_dict
+            pass
+        projected_points2d, _, inner_indices = geometry.projection(lidar_points=data_dict['lidar_data'][:, :3], 
+                                                                    camera_data=data_dict['camera_data'],
                                                                     camera_pose=camera_pose,
                                                                     camera_intrinsics=camera_intrinsics,
                                                                     filter_outliers=True)
-        camera_lidar_data = lidar_data[inner_indices]
-        camera_semseg_data = semseg_data[inner_indices]
-        camera_semseg_data = np.vectorize(self.learning_map.__getitem__)(camera_semseg_data)
-        calib_info = {
-            'camera_pose':camera_pose,
-            'lidar_pose':lidar_pose,
-            'camera_intrinsics':camera_intrinsics,
-            'sub_dir':ava_scenes_idx[0],
-            'idx':ava_scenes_idx[1],
-            'camera_name':ava_scenes_idx[2],
-        }
-        data_dict = {
-            'xyz':camera_lidar_data[:, :3],
-            'img':camera_data,
-            'calib_info':calib_info,
-            'labels':camera_semseg_data,
-            'signal':camera_lidar_data[:, 3:4],
-            'origin_len':camera_lidar_data.shape[0]
-        }
+        camera_lidar_data = data_dict['lidar_data'][inner_indices]
+        ori_camera_semseg_data = data_dict['semseg'][inner_indices]
+        camera_semseg_data = np.vectorize(self.learning_map.__getitem__)(ori_camera_semseg_data)
+        data_dict.update({
+            'xyz': camera_lidar_data[:, :3],
+            'img': data_dict['camera_data'],
+            'ori_semseg': camera_semseg_data,
+            'labels': camera_semseg_data,
+            'signal': camera_lidar_data[:, 3:4],
+            'origin_len': camera_lidar_data.shape[0]
+        })
         return data_dict
 
 

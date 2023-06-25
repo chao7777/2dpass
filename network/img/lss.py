@@ -1,3 +1,4 @@
+#bevfusion_adlab
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -123,6 +124,7 @@ class BevEncode(nn.Module):
 
 class LiftSplatShoot(nn.Module):
     """
+    bevfusion_adlab
     Args:
         lss (bool): using default downsampled r18 BEV encoder in LSS.
         final_dim: actual RGB image size for actual BEV coordinates, default (900, 1600)

@@ -1,5 +1,5 @@
 import numpy as np
-from pytorch_lightning.metrics import Metric
+from torchmetrics import Metric
 from dataloader.pc_dataset import get_SemKITTI_label_name
 
 
@@ -34,6 +34,8 @@ class IoU(Metric):
         self.hist_list.append(fast_hist_crop(predict_labels, val_pt_labs, self.unique_label))
 
     def compute(self):
+        # if len(self.hist_list) == 0:
+        #     return np.zeros(self.unique_label.shape[0]), self.best_miou
         iou = per_class_iu(sum(self.hist_list))
         if np.nanmean(iou) > self.best_miou:
             self.best_miou = np.nanmean(iou)

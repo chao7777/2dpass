@@ -12,9 +12,6 @@ from pyquaternion import Quaternion
 from tools.nuscenes.utils.geometry_utils import view_points
 from tools.pandaset import geometry
 
-REGISTERED_DATASET_CLASSES = {}
-REGISTERED_COLATE_CLASSES = {}
-
 try:
     from torchsparse import SparseTensor
     from torchsparse.utils.collate import sparse_collate_fn
@@ -22,6 +19,8 @@ try:
 except:
     print('please install torchsparse if you want to run spvcnn/minkowskinet!')
 
+REGISTERED_DATASET_CLASSES = {}
+REGISTERED_COLATE_CLASSES = {}
 
 def register_dataset(cls, name=None):
     global REGISTERED_DATASET_CLASSES
@@ -510,60 +509,24 @@ class point_image_dataset_nus(data.Dataset):
         self.trans_std = trans_std
         self.max_dropout_ratio = max_dropout_ratio
         self.debug = config['debug']
+        self.is_ida_aug = False
 
         self.resize = config['dataset_params'].get('resize', False)
         color_jitter = config['dataset_params']['color_jitter']
         self.color_jitter = T.ColorJitter(*color_jitter) if color_jitter else None
         self.flip2d = config['dataset_params']['flip2d']
         self.image_normalizer = config['dataset_params'].get('image_normalizer', False)
-
-    def map_pointcloud_to_image(self, pc, im_shape, info):
-        """
-        Maps the lidar point cloud to the image.
-        :param pc: (3, N)
-        :param im_shape: image to check size and debug
-        :param info: dict with calibration infos
-        :param im: image, only for visualization
-        :return:
-        """
-        pc = pc.copy().T
-
-        # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
-        # First step: transform the point-cloud to the ego vehicle frame for the timestamp of the sweep.
-        pc = Quaternion(info['lidar2ego_rotation']).rotation_matrix @ pc
-        pc = pc + np.array(info['lidar2ego_translation'])[:, np.newaxis]
-
-        # Second step: transform to the global frame.
-        pc = Quaternion(info['ego2global_rotation_lidar']).rotation_matrix @ pc
-        pc = pc + np.array(info['ego2global_translation_lidar'])[:, np.newaxis]
-
-        # Third step: transform into the ego vehicle frame for the timestamp of the image.
-        pc = pc - np.array(info['ego2global_translation_cam'])[:, np.newaxis]
-        pc = Quaternion(info['ego2global_rotation_cam']).rotation_matrix.T @ pc
-
-        # Fourth step: transform into the camera.
-        pc = pc - np.array(info['cam2ego_translation'])[:, np.newaxis]
-        pc = Quaternion(info['cam2ego_rotation']).rotation_matrix.T @ pc
-
-        # Fifth step: actually take a "picture" of the point cloud.
-        # Grab the depths (camera frame z axis points away from the camera).
-        depths = pc[2, :]
-
-        # Take the actual picture (matrix multiplication with camera-matrix + renormalization).
-        points = view_points(pc, np.array(info['cam_intrinsic']), normalize=True)
-
-        # Cast to float32 to prevent later rounding errors
-        points = points.astype(np.float32)
-
-        # Remove points that are either outside or behind the camera.
-        mask = np.ones(depths.shape[0], dtype=bool)
-        mask = np.logical_and(mask, depths > 0)
-        mask = np.logical_and(mask, points[0, :] > 0)
-        mask = np.logical_and(mask, points[0, :] < im_shape[1])
-        mask = np.logical_and(mask, points[1, :] > 0)
-        mask = np.logical_and(mask, points[1, :] < im_shape[0])
-
-        return mask, pc.T, points.T[:, :2]
+        self.ida_aug_conf = {
+            'resize_lim': (0.386, 0.55),
+            'final_dim': (256, 704),
+            'rot_lim': (-5.4, 5.4),
+            'H': 900,
+            'W': 1600,
+            'rand_flip': True,
+            'bot_pct_lim': (0.0, 0.0),
+            'cams': ['CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT', 'CAM_BACK', 'CAM_BACK_RIGHT'],
+            'Ncams': 6
+        }
 
     def __len__(self):
         'Denotes the total number of samples'
@@ -612,22 +575,29 @@ class point_image_dataset_nus(data.Dataset):
                 sig[drop_idx, :] = sig[0, :]
                 ref_index[drop_idx] = ref_index[0]
 
-        keep_idx, _, points_img = self.map_pointcloud_to_image(
+        keep_idx, _, points_img, depths = self.map_pointcloud_to_image(
             xyz, (image.size[1], image.size[0]), calib_infos)
+        # lidar_depths = np.concatenate([points_img[keep_idx][:2, :].T, depths[keep_idx][:, None]], axis=1).astype(np.float32)
+        # if self.is_ida_aug:
+        #     resize, _, crop, flip, rotate_ida = self.sample_ida_augmentation()
+        #     point_depth_augmented = self.depth_transform(lidar_depths, resize, self.ida_aug_conf['final_dim'], crop, flip, rotate_ida)
+        #     depth_label = torch.stack([point_depth_augmented])
         points_img = np.ascontiguousarray(np.fliplr(points_img))
+        
+        # 可视化某一分割类别的数据集
         """
-        可视化某一分割类别的数据集
         import cv2
         img = cv2.imread(data['cam_path'])
-        # k_img = points_img[keep_idx]
-        # label = labels[keep_idx]
-        veg = np.ones(labels.shape[0], dtype=bool)
-        veg = np.logical_and(veg, labels[:,0]==16)
-        veg_img = points_img[veg]
+        k_img = points_img[keep_idx]
+        label = labels[keep_idx]
+        veg = np.ones(label.shape[0], dtype=bool)
+        veg = np.logical_and(veg, label[:,0]==16)
+        veg_img = k_img[veg]
         for i in range(len(veg_img)):
             cv2.circle(img, (int(veg_img[i][1]), int(veg_img[i][0])), 1, (255,0,0), 4)
         cv2.imwrite('work_dirs/veg.jpg', img)
         """
+        
         # random data augmentation by rotation
         if self.rotate_aug:
             rotate_rad = np.deg2rad(np.random.random() * 360)
@@ -708,12 +678,124 @@ class point_image_dataset_nus(data.Dataset):
         data_dict['img_indices'] = img_indices
         data_dict['img_label'] = img_label
         data_dict['point2img_index'] = point2img_index
-
+        
         return data_dict
+    
+    def depth_transform(self, cam_depth, resize, resize_dims, crop, flip, rotate):
+        """Transform depth based on ida augmentation configuration.
+
+        Args:
+            cam_depth (np array): Nx3, 3: x,y,d.
+            resize (float): Resize factor.
+            resize_dims (list): Final dimension.
+            crop (list): x1, y1, x2, y2
+            flip (bool): Whether to flip.
+            rotate (float): Rotation value.
+
+        Returns:
+            np array: [h/down_ratio, w/down_ratio, d]
+        """
+
+        H, W = resize_dims
+        cam_depth[:, :2] = cam_depth[:, :2] * resize
+        cam_depth[:, 0] -= crop[0]
+        cam_depth[:, 1] -= crop[1]
+        if flip:
+            cam_depth[:, 0] = resize_dims[1] - cam_depth[:, 0]
+
+        cam_depth[:, 0] -= W / 2.0
+        cam_depth[:, 1] -= H / 2.0
+
+        h = rotate / 180 * np.pi
+        rot_matrix = [
+            [np.cos(h), np.sin(h)],
+            [-np.sin(h), np.cos(h)],
+        ]
+        cam_depth[:, :2] = np.matmul(rot_matrix, cam_depth[:, :2].T).T
+
+        cam_depth[:, 0] += W / 2.0
+        cam_depth[:, 1] += H / 2.0
+
+        depth_coords = cam_depth[:, :2].astype(np.int16)
+
+        depth_map = np.zeros(resize_dims)
+        valid_mask = ((depth_coords[:, 1] < resize_dims[0])
+                    & (depth_coords[:, 0] < resize_dims[1])
+                    & (depth_coords[:, 1] >= 0)
+                    & (depth_coords[:, 0] >= 0))
+        depth_map[depth_coords[valid_mask, 1], depth_coords[valid_mask, 0]] = cam_depth[valid_mask, 2]
+
+        return torch.Tensor(depth_map)
+    
+    def sample_ida_augmentation(self):
+        """Generate ida augmentation values based on ida_config."""
+        H, W = self.ida_aug_conf['H'], self.ida_aug_conf['W']
+        fH, fW = self.ida_aug_conf['final_dim']
+        resize = np.random.uniform(*self.ida_aug_conf['resize_lim'])
+        resize_dims = (int(W * resize), int(H * resize))
+        newW, newH = resize_dims
+        crop_h = int((1 - np.random.uniform(*self.ida_aug_conf['bot_pct_lim'])) * newH) - fH
+        crop_w = int(np.random.uniform(0, max(0, newW - fW)))
+        crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+        flip = False
+        if self.ida_aug_conf['rand_flip'] and np.random.choice([0, 1]):
+            flip = True
+        rotate_ida = np.random.uniform(*self.ida_aug_conf['rot_lim'])
+        return resize, resize_dims, crop, flip, rotate_ida
+
+    def map_pointcloud_to_image(self, pc, im_shape, info):
+        """
+        Maps the lidar point cloud to the image.
+        :param pc: (3, N)
+        :param im_shape: image to check size and debug
+        :param info: dict with calibration infos
+        :param im: image, only for visualization
+        :return:
+        """
+        pc = pc.copy().T
+
+        # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
+        # First step: transform the point-cloud to the ego vehicle frame for the timestamp of the sweep.
+        pc = Quaternion(info['lidar2ego_rotation']).rotation_matrix @ pc
+        pc = pc + np.array(info['lidar2ego_translation'])[:, np.newaxis]
+
+        # Second step: transform to the global frame.
+        pc = Quaternion(info['ego2global_rotation_lidar']).rotation_matrix @ pc
+        pc = pc + np.array(info['ego2global_translation_lidar'])[:, np.newaxis]
+
+        # Third step: transform into the ego vehicle frame for the timestamp of the image.
+        pc = pc - np.array(info['ego2global_translation_cam'])[:, np.newaxis]
+        pc = Quaternion(info['ego2global_rotation_cam']).rotation_matrix.T @ pc
+
+        # Fourth step: transform into the camera.
+        pc = pc - np.array(info['cam2ego_translation'])[:, np.newaxis]
+        pc = Quaternion(info['cam2ego_rotation']).rotation_matrix.T @ pc
+
+        # Fifth step: actually take a "picture" of the point cloud.
+        # Grab the depths (camera frame z axis points away from the camera).
+        depths = pc[2, :]
+
+        # Take the actual picture (matrix multiplication with camera-matrix + renormalization).
+        points = view_points(pc, np.array(info['cam_intrinsic']), normalize=True)
+
+        # Cast to float32 to prevent later rounding errors
+        points = points.astype(np.float32)
+
+        # Remove points that are either outside or behind the camera.
+        mask = np.ones(depths.shape[0], dtype=bool)
+        mask = np.logical_and(mask, depths > 0)
+        mask = np.logical_and(mask, points[0, :] > 0)
+        mask = np.logical_and(mask, points[0, :] < im_shape[1])
+        mask = np.logical_and(mask, points[1, :] > 0)
+        mask = np.logical_and(mask, points[1, :] < im_shape[0])
+
+        return mask, pc.T, points.T[:, :2], depths
+
+    
 
 @register_dataset
 class point_image_dataset_pandaset(data.Dataset):
-    def __init__(self, in_dataset, config, loader_config):
+    def __init__(self, in_dataset, config, loader_config, num_vote = 1):
         self.point_cloud_dataset = in_dataset
         self.config = config
         self.loader_config = loader_config
@@ -961,7 +1043,7 @@ def collate_fn_default(data):
     origin_len = data[0]['origin_len']
     ref_indices = [torch.from_numpy(d['ref_index']) for d in data]
     point2img_index = [torch.from_numpy(d['point2img_index']).long() for d in data]
-    path = [d['root'] for d in data]
+    # path = [d['root'] for d in data]
 
     img = [torch.from_numpy(d['img']) for d in data]
     img_indices = [d['img_indices'] for d in data]
@@ -987,7 +1069,7 @@ def collate_fn_default(data):
         'img': torch.stack(img, 0).permute(0, 3, 1, 2),
         'img_indices': img_indices,
         'img_label': torch.cat(img_label, 0).squeeze(1).long(),
-        'path': path,
+        # 'path': path,
     }
 
 

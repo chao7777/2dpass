@@ -1,4 +1,3 @@
-from turtle import forward
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,6 +7,7 @@ from mmcv.runner import auto_fp16
 from mmdet.models.necks import FPN
 
 class FPNC(FPN):
+    #bevfusion-adlab
     def __init__(self, conv_cfg=None, norm_cfg=None, act_cfg=None, final_dim=(900, 1600), downsample=4, 
                  use_adp=False, fuse_conv_cfg=None, outC=256, **kwargs):
         super(FPNC, self).__init__(conv_cfg=conv_cfg, norm_cfg=norm_cfg, act_cfg=act_cfg, **kwargs)
@@ -56,6 +56,7 @@ class FPNC(FPN):
         return [out]
 
 class GeneralizedLSSFPN(FPN):
+    #bevfusion-mit
     def __init__(self, in_channels, out_channels, num_outs, start_level=0, end_level=-1, no_norm_on_lateral=False,
                  conv_cfg=None, norm_cfg=dict(type='BN2d'), act_cfg=dict(type='ReLU'), 
                  upsample_cfg=dict(mode="bilinear", align_corners=True), **kwargs):
