@@ -48,20 +48,20 @@ class MultiProcess:
     def _print_error(value):
         print("线程池出错,出错原因为: ", value)
 
-    def _core_comp(self, sub_task_num, sub_task, save_dir, task_func, kwargs=None):
+    def _core_comp(self, sub_task_num, sub_task, task_func, kwargs=None):
         try:
             logger.info("start to run sub_task_num {}, len(sub_task)  is {}",
                         sub_task_num, len(sub_task))
             if kwargs == None:
-                task_func(sub_task, sub_task_num, save_dir)
+                task_func(sub_task, sub_task_num)
             else:
-                task_func(sub_task, sub_task_num, save_dir, kwargs)
+                task_func(sub_task, sub_task_num, kwargs)
         except:
             logger.error(traceback.format_exc())
             logger.error("comp error!")
 
     @staticmethod
-    def multi_process_entr(self, tasks_enr, num, save_dir, task_func, kwargs=None):
+    def multi_process_entr(self, tasks_enr, num, task_func, kwargs=None):
         try:
             err_res_list = []
             pool = Pool(num)
@@ -74,7 +74,7 @@ class MultiProcess:
                 sub_task = tasks[i]
                 sub_task_num = i
                 res = pool.apply_async(self._core_comp,
-                                    args=(MultiProcess, sub_task_num, sub_task, save_dir, task_func, kwargs),
+                                    args=(MultiProcess, sub_task_num, sub_task, task_func, kwargs),
                                     callback=self._finish,
                                     error_callback=self._print_error)
         except:
@@ -86,8 +86,8 @@ class MultiProcess:
             pool.close()
             pool.join()
 
-def task_func(task, process_num, save_dir, kwargs):
-        print(task, process_num, save_dir, kwargs)
+def task_func(task, process_num, kwargs):
+        print(task, process_num, kwargs)
 
 def test_multi_process():
     tasks = [1,2]

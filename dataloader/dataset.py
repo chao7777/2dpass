@@ -852,7 +852,7 @@ class point_image_dataset_pandaset(data.Dataset):
                                                                     camera_pose=data_dict['calib_info']['camera_pose'],
                                                                     camera_intrinsics=data_dict['calib_info']['camera_intrinsics'],
                                                                     filter_outliers=True)
-        points_img = np.ascontiguousarray(projected_points2d)
+        points_img = np.ascontiguousarray(np.fliplr(projected_points2d))
         if self.rotate_aug:
             rotate_rad = np.deg2rad(np.random.random() * 360)
             c, s = np.cos(rotate_rad), np.sin(rotate_rad)
@@ -882,6 +882,7 @@ class point_image_dataset_pandaset(data.Dataset):
         
         point2img_index = np.arange(len(inner_indices))[inner_indices]
         feat = np.concatenate((lidar2ego_xyz, data_dict['signal']), axis=1)
+        img_label = data_dict['labels'][inner_indices]
         if self.resize:
             assert data_dict['img'].size[0] > self.resize[0]
 
@@ -920,7 +921,7 @@ class point_image_dataset_pandaset(data.Dataset):
             'origin_len':data_dict['origin_len'],
             'img':data_dict['img'],
             'img_indices':img_indices,
-            'img_label':points_img,
+            'img_label':img_label,
             'point2img_index':point2img_index
         }
         return data_dict_res

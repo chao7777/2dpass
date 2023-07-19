@@ -297,6 +297,7 @@ class Pandaset(data.Dataset):
     def __init__(self, config, data_path, imageset='train'):
         self.config = config
         dataset_yaml = yaml.safe_load(open(config['dataset_params']['label_mapping']))
+        self.imageset = imageset
         if imageset == 'train':
             self.data_path = [os.path.join(data_path, x) for x in dataset_yaml['train_list']]
         else:
